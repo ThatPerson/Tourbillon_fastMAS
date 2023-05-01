@@ -15,7 +15,7 @@
 #define INVERT 2
 #define SATURATEZ 3
 
-//#define ZQT
+//#define ZQT 2/3/4
 
 using namespace std;
 
@@ -871,8 +871,46 @@ void Simulation::simulate_powder_average(std::vector<int>& polarised_spins,
 #ifdef ZQT
                 
                for (auto j : crystal.nearest_neighbours[i]) {
-                    ZQTp[i][j][step][mythread] += local_sigma.pm[i + local_sigma.number_of_spins * j] * orientations[crystallite][3];
-                }
+                   // ZQTp[i][j][step][mythread] += local_sigma.pm[i + local_sigma.number_of_spins * j] * orientations[crystallite][3];
+               	   if (ZQT == 2) {
+                       ZQTp[i][j][step][mythread] += local_sigma.pm[i + local_sigma.number_of_spins * j] * orientati
+ons[crystallite][3];
+                   } else if (ZQT == 3) {
+                       std::set<int> nnset;
+                       std::set_intersection(crystal.nearest_neighbours[i].begin(), crystal.nearest_neighbours[i].end(),
+                                             crystal.nearest_neighbours[j].begin(), crystal.nearest_neighbours[j].end(),
+                                             std::inserter(nnset, nnset.begin()));
+                       for (auto k : nnset) {
+                               auto hash = k + i * local_sigma.number_of_spins + j * local_sigma.number_of_spins * local_sigma.number_of_spins;
+                               ZQTp[i][j][step][mythread] += local_sigma.zpm[hash] * orientations[crystallite][3];
+                       }
+                   } else if (ZQT == 4) {
+                       std::set<int> kset;
+                       std::set_intersection(crystal.nearest_neighbours[i].begin(), crystal.nearest_neighbours[i].end(),
+                                             crystal.nearest_neighbours[j].begin(), crystal.nearest_neighbours[j].end(),
+                                             std::inserter(kset, kset.begin()));
+                       for (auto k : kset) {
+                           std::set<int> lset;
+                           std::set_intersection(kset.begin(), kset.end(),
+                                                 crystal.nearest_neighbours[k].begin(), crystal.nearest_neighbours[k].end(),
+                                                 std::inserter(lset, lset.begin()));
+                           for (auto l : lset) {
+                                   int fkl = 0, lkl = 0;
+                                   if (k > l) {
+                                       fkl = k;
+                                       lkl = l;
+                                   } else {
+                                       fkl = l;
+                                       lkl = k;
+                                   }
+                                   auto nos = local_sigma.number_of_spins;
+                                   auto hash = fkl + lkl * nos + i * nos * nos + j * nos * nos * nos;
+                                   ZQTp[i][j][step][mythread] += local_sigma.zzpm[hash] * orientations[crystallite][3];
+                           }
+                     }
+                 }
+
+				}
 #endif
             } // I loop
 
